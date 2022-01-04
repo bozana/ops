@@ -31,7 +31,9 @@ define('COUNTER_LITERAL_PREPRINT', 'Preprint');
 define('COUNTER_LITERAL_SERVER', 'Server');
 define('COUNTER_LITERAL_PROPRIETARY', 'Proprietary');
 
-use PKP\statistics\PKPStatisticsHelper;
+use APP\core\Application;
+use APP\statistics\StatisticsHelper;
+use PKP\core\PKPString;
 
 class CounterReport
 {
@@ -86,13 +88,13 @@ class CounterReport
     public function getKeyForFiletype($filetype)
     {
         switch ($filetype) {
-            case PKPStatisticsHelper::STATISTICS_FILE_TYPE_HTML:
+            case StatisticsHelper::STATISTICS_FILE_TYPE_HTML:
                 $metricTypeKey = 'ft_html';
                 break;
-            case PKPStatisticsHelper::STATISTICS_FILE_TYPE_PDF:
+            case StatisticsHelper::STATISTICS_FILE_TYPE_PDF:
                 $metricTypeKey = 'ft_pdf';
                 break;
-            case PKPStatisticsHelper::STATISTICS_FILE_TYPE_OTHER:
+            case StatisticsHelper::STATISTICS_FILE_TYPE_OTHER:
             default:
                 $metricTypeKey = 'other';
         }
@@ -162,10 +164,10 @@ class CounterReport
         $serverId = $server ? $server->getId() : '';
         // If the request context is at the server level, the dimension context id must be that same server id
         if ($serverId) {
-            if (isset($filters[PKPStatisticsHelper::STATISTICS_DIMENSION_CONTEXT_ID]) && $filters[PKPStatisticsHelper::STATISTICS_DIMENSION_CONTEXT_ID] != $serverId) {
+            if (isset($filters['contextIds']) && $filters['contextIds'] != $serverId) {
                 $this->setError(new Exception(__('plugins.reports.counter.generic.exception.filter'), COUNTER_EXCEPTION_WARNING | COUNTER_EXCEPTION_BAD_FILTERS));
             }
-            $filters[PKPStatisticsHelper::STATISTICS_DIMENSION_CONTEXT_ID] = $serverId;
+            $filters['contextIds'] = $serverId;
         }
         return $filters;
     }
@@ -185,8 +187,8 @@ class CounterReport
             $metric = new COUNTER\Metric(
                 // Date range for JR1 is beginning of the month to end of the month
                 new COUNTER\DateRange(
-                    DateTime::createFromFormat('Ymd His', $period . '01 000000'),
-                    DateTime::createFromFormat('Ymd His', $period . date('t', strtotime(substr($period, 0, 4) . '-' . substr($period, 4) . '-01')) . ' 235959')
+                    DateTime::createFromFormat('Y-m-d H:i:s', $period . ' 00:00:00'),
+                    DateTime::createFromFormat('Y-m-d H:i:s', substr($period, 0, 8) . date('t', strtotime($period)) . ' 23:59:59')
                 ),
                 'Requests',
                 $counters
@@ -307,9 +309,10 @@ class CounterReport
         $context = $request->getContext();
         $contextDao = Application::getContextDAO();
         $availableContexts = $contextDao->getAvailable();
+        [$firstContext, $secondContext] = [$availableContexts->next(), $availableContexts->next()];
         switch ($key) {
             case 'name':
-                if ($availableContexts->getCount() > 1) {
+                if ($secondContext) {
                     $name = $site->getLocalizedTitle();
                 } else {
                     $name = $context->getData('publisherInstitution');
@@ -322,7 +325,7 @@ class CounterReport
                 return $request->getBaseUrl();
             case 'contacts':
                 try {
-                    if ($availableContexts->getCount() > 1) {
+                    if ($secondContext) {
                         $contactName = $site->getLocalizedContactName();
                         $contactEmail = $site->getLocalizedContactEmail();
                     } else {
