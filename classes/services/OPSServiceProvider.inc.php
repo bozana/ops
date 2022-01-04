@@ -21,6 +21,7 @@ use PKP\services\PKPSchemaService;
 use PKP\services\PKPSiteService;
 use PKP\services\PKPStatsContextService;
 use PKP\services\PKPStatsGeoService;
+use PKP\services\PKPStatsSushiService;
 
 class OPSServiceProvider implements \Pimple\ServiceProviderInterface
 {
@@ -77,6 +78,11 @@ class OPSServiceProvider implements \Pimple\ServiceProviderInterface
         // Geo statistics service
         $pimple['geoStats'] = function () {
             return new PKPStatsGeoService();
+        };
+
+        // SUSHI statistics service
+        $pimple['sushiStats'] = function () {
+            return new PKPStatsSushiService();
         };
 
         // Editorial statistics service
