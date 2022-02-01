@@ -50,6 +50,7 @@
 		<code function="installEmailTemplate" key="EDITOR_DECISION_REVERT_INITIAL_DECLINE" locales="en_US" />
 		<migration class="APP\migration\install\MetricsMigration" />
 		<migration class="APP\migration\upgrade\v3_4_0\I6782_Metrics" />
+		<migration class="APP\migration\upgrade\v3_4_0\I6782_RemovePlugins" />
 		<note file="docs/release-notes/README-3.4.0" />
 	</upgrade>
 
