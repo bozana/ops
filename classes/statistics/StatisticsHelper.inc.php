@@ -16,27 +16,29 @@
 
 namespace APP\statistics;
 
+use APP\core\Application;
 use APP\i18n\AppLocale;
-
 use PKP\statistics\PKPStatisticsHelper;
 
 class StatisticsHelper extends PKPStatisticsHelper
 {
+    // Metrics
+    public const STATISTICS_METRIC_INVESTIGATIONS = 'metric_investigations';
+    public const STATISTICS_METRIC_INVESTIGATIONS_UNIQUE = 'metric_investigations_unique';
+    public const STATISTICS_METRIC_REQUESTS = 'metric_requests';
+    public const STATISTICS_METRIC_REQUESTS_UNIQUE = 'metric_requests_unique';
+
     /**
-     * @see PKPStatisticsHelper::getAppColumnTitle()
+     * COUNTER DB tables metrics columns
      */
-    protected function getAppColumnTitle($column)
+    public static function getCounterMetricsColumns(): array
     {
-        switch ($column) {
-            case self::STATISTICS_DIMENSION_SUBMISSION_ID:
-                return __('common.publication');
-            case self::STATISTICS_DIMENSION_PKP_SECTION_ID:
-                return __('section.section');
-            case self::STATISTICS_DIMENSION_CONTEXT_ID:
-                return __('context.context');
-            default:
-                assert(false);
-        }
+        return [
+            self::STATISTICS_METRIC_INVESTIGATIONS,
+            self::STATISTICS_METRIC_INVESTIGATIONS_UNIQUE,
+            self::STATISTICS_METRIC_REQUESTS,
+            self::STATISTICS_METRIC_REQUESTS_UNIQUE,
+        ];
     }
 
     /**
@@ -47,10 +49,10 @@ class StatisticsHelper extends PKPStatisticsHelper
         $objectTypes = parent::getReportObjectTypesArray();
         AppLocale::requireComponents(LOCALE_COMPONENT_APP_EDITOR);
         $objectTypes = $objectTypes + [
-            ASSOC_TYPE_SERVER => __('context.context'),
-            ASSOC_TYPE_SECTION => __('section.section'),
-            ASSOC_TYPE_SUBMISSION => __('common.publication'),
-            ASSOC_TYPE_SUBMISSION_FILE => __('submission.galleyFiles')
+            Application::ASSOC_TYPE_SERVER => __('context.context'),
+            Application::ASSOC_TYPE_SECTION => __('section.section'),
+            Application::ASSOC_TYPE_SUBMISSION => __('common.publication'),
+            Application::ASSOC_TYPE_SUBMISSION_FILE => __('submission.galleyFiles')
         ];
 
         return $objectTypes;
