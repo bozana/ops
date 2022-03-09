@@ -33,7 +33,7 @@ define('PREPRINT_ACCESS_OPEN', 1);
 
 use APP\core\Application;
 use APP\core\Services;
-
+use APP\statistics\StatisticsHelper;
 use PKP\facades\Locale;
 use PKP\plugins\HookRegistry;
 use PKP\submission\PKPSubmission;
@@ -296,21 +296,35 @@ class Submission extends PKPSubmission
     /**
      * Get total galley views for the preprint
      *
+     * Used in templates/frontend/objects/preprint_summary.tpl
+     *
      * @return int
      */
     public function getTotalGalleyViews()
     {
-        $application = Application::get();
-        $publications = $this->getPublishedPublications();
         $views = 0;
-
+        $fileIds = [];
+        $publications = $this->getPublishedPublications();
         foreach ($publications as $publication) {
             foreach ((array) $publication->getData('galleys') as $galley) {
                 $file = $galley->getFile();
                 if (!$galley->getRemoteUrl() && $file) {
-                    $views = $views + $application->getPrimaryMetricByAssoc(ASSOC_TYPE_SUBMISSION_FILE, $file->getId());
+                    $fileIds[] = $file->getId();
                 }
             }
+        }
+        $filters = [
+            'dateStart' => StatisticsHelper::STATISTICS_EARLIEST_DATE,
+            'dateEnd' => date('Y-m-d', strtotime('yesterday')),
+            'contextIds' => [$this->getData('contextId')],
+            'fileIds' => $fileIds,
+        ];
+        $metrics = Services::get('publicationStats')
+            ->getQueryBuilder($filters)
+            ->getSum([])
+            ->get()->toArray();
+        if (!empty($metrics)) {
+            $views = (int) current($metrics)->metric;
         }
         return $views;
     }
