@@ -213,7 +213,7 @@ class UsageStatsTotalTemporaryRecordDAO
             ";
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
             $metricUpsertSql .= '
-                ON CONFLICT ON CONSTRAINT metrics_geo_daily_uc_load_id_context_id_submission_id_country_region_city_date DO UPDATE
+                ON CONFLICT ON CONSTRAINT msgd_uc_load_context_submission_c_r_c_date DO UPDATE
                 SET metric = excluded.metric;
                 ';
         } else {
@@ -241,7 +241,7 @@ class UsageStatsTotalTemporaryRecordDAO
             ";
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
             $metricInvestigationsUpsertSql .= '
-                ON CONFLICT ON CONSTRAINT metrics_submission_daily_uc_load_id_context_id_submission_id_date DO UPDATE
+                ON CONFLICT ON CONSTRAINT msd_uc_load_id_context_id_submission_id_date DO UPDATE
                 SET metric_investigations = excluded.metric_investigations;
                 ';
         } else {
@@ -262,7 +262,7 @@ class UsageStatsTotalTemporaryRecordDAO
             ";
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
             $metricRequestsUpsertSql .= '
-                ON CONFLICT ON CONSTRAINT metrics_submission_daily_uc_load_id_context_id_submission_id_date DO UPDATE
+                ON CONFLICT ON CONSTRAINT msd_uc_load_id_context_id_submission_id_date DO UPDATE
                 SET metric_requests = excluded.metric_requests;
                 ';
         } else {
@@ -291,7 +291,7 @@ class UsageStatsTotalTemporaryRecordDAO
             ";
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
             $metricInvestigationsUpsertSql .= '
-                ON CONFLICT ON CONSTRAINT metrics_institution_daily_uc_load_id_context_id_submission_id_institution_id_date DO UPDATE
+                ON CONFLICT ON CONSTRAINT msid_uc_load_id_context_id_submission_id_institution_id_date DO UPDATE
                 SET metric_investigations = excluded.metric_investigations;
                 ';
         } else {
@@ -312,7 +312,7 @@ class UsageStatsTotalTemporaryRecordDAO
             ";
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
             $metricRequestsUpsertSql .= '
-                ON CONFLICT ON CONSTRAINT metrics_institution_daily_uc_load_id_context_id_submission_id_institution_id_date DO UPDATE
+                ON CONFLICT ON CONSTRAINT msid_uc_load_id_context_id_submission_id_institution_id_date DO UPDATE
                 SET metric_requests = excluded.metric_requests;
                 ';
         } else {
