@@ -14,6 +14,7 @@
  *
  */
 
+use APP\sushi\IR;
 use PKP\core\APIResponse;
 use Slim\Http\Request as SlimHttpRequest;
 
@@ -46,8 +47,7 @@ class StatsSushiHandler extends PKPStatsSushiHandler
      */
     public function getReportsIR(SlimHttpRequest $slimRequest, APIResponse $response, array $args): APIResponse
     {
-        $args['report'] = new \APP\sushi\IR();
-        return $this->getReport($slimRequest, $response, $args);
+        return $this->getReportResponse(new IR(), $slimRequest, $response, $args);
     }
 
     /**

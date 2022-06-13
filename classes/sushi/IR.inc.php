@@ -19,51 +19,20 @@ namespace APP\sushi;
 use APP\core\Services;
 use APP\facades\Repo;
 use PKP\statistics\PKPStatisticsHelper;
+use PKP\sushi\CounterR5Report;
 
-class IR
+class IR extends CounterR5Report
 {
-    /** ID of the context the report is for. */
-    public int $contextId;
-
-    // Data used for the report header:
-    /** Platform name, either press name or name defined in site settings */
-    public string $platformName;
-    /** Platform ID is used as namespace for item proprietary IDs. */
-    public string $platformId;
-    /** The requested customer ID is the DB institution_id */
-    public int $customerId;
-    /** Institution name */
-    public string $institutionName;
-    /** Institution ID. Currently we only provide proprietary and ROR. */
-    public ?array $institutionId;
-
-    // Report filters:
-    /** The following filters are always the same in our case. */
-    public const ACCESS_TYPE = 'OA_Gold';
+    /** Data type */
     public const DATA_TYPE = 'Repository_Item';
-    public const ACCESS_METHOD = 'Regular';
-    /** The requested period, begin and end date, the report should be created for. */
-    public string $beginDate;
-    public string $endDate;
-    /** The requested item ID, the report should be created for. */
-    public int $itemId = 0;
-    /** Article contributor */
+
+    /** The requested item i.e. article IDs the report should be created for. */
+    public array $itemIds = [];
+
+    /** Preprint contributor */
     public string $itemContributor;
-    /** Requested Year of Publication (YOP) */
-    public array $yearsOfPublication = [];
-    /** Requested metric types */
-    public array $metricTypes = ['Total_Item_Investigations', 'Unique_Item_Investigations', 'Total_Item_Requests', 'Unique_Item_Requests'];
 
-    /** Warnings that will be displayed in the report header. */
-    public array $exceptions = [];
-
-    /** List of all filter and attributes requested and applied that will displayed in the report header.  */
-    protected array $filters = [];
-    protected array $attributes = [];
-
-    /** Attributes to show in the report and the metrics will be grouped by. */
-    protected array $attributesToShow = [];
-    protected string $granularity = 'Month';
+    /** If the details about the parent should be included */
     protected string $includeParentDetails = 'False';
 
     /**
@@ -80,14 +49,6 @@ class IR
     public function getID(): string
     {
         return 'IR';
-    }
-
-    /**
-     * Get report release.
-     */
-    public function getRelease(): string
-    {
-        return '5';
     }
 
     /**
@@ -111,7 +72,23 @@ class IR
      */
     public function getSupportedParams(): array
     {
-        return ['customer_id', 'begin_date', 'end_date', 'platform', 'item_id', 'item_contributor', 'metric_type', 'data_type', 'yop', 'access_type', 'access_method', 'attributes_to_show', 'include_component_details', 'include_parent_details', 'granularity'];
+        return [
+            'customer_id',
+            'begin_date',
+            'end_date',
+            'platform',
+            'item_id',
+            'item_contributor',
+            'metric_type',
+            'data_type',
+            'yop',
+            'access_type',
+            'access_method',
+            'attributes_to_show',
+            'include_component_details',
+            'include_parent_details',
+            'granularity'
+        ];
     }
 
     /**
@@ -120,12 +97,36 @@ class IR
     public function getSupportedFilters(): array
     {
         return [
-            ['name' => 'YOP', 'supportedValues' => [], 'param' => 'yop'],
-            ['name' => 'Item_Id', 'supportedValues' => [], 'param' => 'item_id'],
-            ['name' => 'Access_Type', 'supportedValues' => [self::ACCESS_TYPE], 'param' => 'access_type'],
-            ['name' => 'Data_Type', 'supportedValues' => [self::DATA_TYPE], 'param' => 'data_type'],
-            ['name' => 'Metric_Type', 'supportedValues' => ['Total_Item_Investigations', 'Unique_Item_Investigations', 'Total_Item_Requests', 'Unique_Item_Requests'], 'param' => 'metric_type'],
-            ['name' => 'Access_Method', 'supportedValues' => [self::ACCESS_METHOD], 'param' => 'access_method'],
+            [
+                'name' => 'YOP',
+                'supportedValues' => [],
+                'param' => 'yop'
+            ],
+            [
+                'name' => 'Item_Id',
+                'supportedValues' => [],
+                'param' => 'item_id'
+            ],
+            [
+                'name' => 'Access_Type',
+                'supportedValues' => [self::ACCESS_TYPE],
+                'param' => 'access_type'
+            ],
+            [
+                'name' => 'Data_Type',
+                'supportedValues' => [self::DATA_TYPE],
+                'param' => 'data_type'
+            ],
+            [
+                'name' => 'Metric_Type',
+                'supportedValues' => ['Total_Item_Investigations', 'Unique_Item_Investigations', 'Total_Item_Requests', 'Unique_Item_Requests'],
+                'param' => 'metric_type'
+            ],
+            [
+                'name' => 'Access_Method',
+                'supportedValues' => [self::ACCESS_METHOD],
+                'param' => 'access_method'
+            ],
         ];
     }
 
@@ -135,33 +136,33 @@ class IR
      * The attributes will be displayed and they define what the metrics will be aggregated by.
      * Data_Type, Access_Method, and Access_Type are currently always the same for this report,
      * so they will only be displayed and not considered for metrics aggregation.
-     * The only attributes considered for metrics aggregation are YOP and granularity=Month.
+     * The only attributes considered for metrics aggregation are Attributes_To_Show=YOP and granularity=Month.
      * Component details do not exist and parent is not known, so we cannot report this information.
      */
     public function getSupportedAttributes(): array
     {
         return [
-            ['name' => 'Attributes_To_Show', 'supportedValues' => ['Article_Version', 'Authors', 'Access_Method', 'Access_Type', 'Data_Type', 'Publication_Date', 'YOP'], 'param' => 'attributes_to_show'],
-            ['name' => 'Include_Component_Details', 'supportedValues' => ['False'], 'param' => 'include_component_details'],
-            ['name' => 'Include_Parent_Details', 'supportedValues' => ['False'], 'param' => 'include_parent_details'],
-            ['name' => 'granularity', 'supportedValues' => ['Month', 'Totals'], 'param' => 'granularity'],
+            [
+                'name' => 'Attributes_To_Show',
+                'supportedValues' => ['Article_Version', 'Authors', 'Access_Method', 'Access_Type', 'Data_Type', 'Publication_Date', 'YOP'],
+                'param' => 'attributes_to_show'
+            ],
+            [
+                'name' => 'Include_Component_Details',
+                'supportedValues' => ['False'],
+                'param' => 'include_component_details'
+            ],
+            [
+                'name' => 'Include_Parent_Details',
+                'supportedValues' => ['False'],
+                'param' => 'include_parent_details'
+            ],
+            [
+                'name' => 'granularity',
+                'supportedValues' => ['Month', 'Totals'],
+                'param' => 'granularity'
+            ],
         ];
-    }
-
-    /**
-     * Get used filters that will be displayed in the report header.
-     */
-    public function getFilters(): array
-    {
-        return $this->filters;
-    }
-
-    /**
-     * Get used attributes that will be displayed in the report header.
-     */
-    public function getAttributes(): array
-    {
-        return $this->attributes;
     }
 
     /**
@@ -169,46 +170,14 @@ class IR
      */
     public function setFilters(array $filters): void
     {
-        $this->filters = $filters;
+        parent::setFilters($filters);
         foreach ($filters as $filter) {
             switch ($filter['Name']) {
-                case 'Begin_Date':
-                    $this->beginDate = $filter['Value'];
-                    break;
-                case 'End_Date':
-                    $this->endDate = $filter['Value'];
-                    break;
-                case 'Metric_Type':
-                    $this->metricTypes = explode('|', $filter['Value']);
-                    break;
                 case 'YOP':
                     $this->yearsOfPublication = explode('|', $filter['Value']);
                     break;
                 case 'Item_Id':
-                    $this->itemId = (int) $filter['Value'];
-                    break;
-            }
-        }
-    }
-
-    /**
-     * Set attributes based on the requested parameters.
-     *
-     * The attributes will be displayed and they define what the metrics will be aggregated by.
-     * Data_Type, Access_Method, and Access_Type are currently always the same for this report,
-     * so they will only be displayed and not considered for metrics aggregation.
-     * The only attributes considered for metrics aggregation are YOP and granularity=Month.
-     */
-    public function setAttributes(array $attributes): void
-    {
-        $this->attributes = $attributes;
-        foreach ($attributes as $attribute) {
-            switch ($attribute['Name']) {
-                case 'Attributes_To_Show':
-                    $this->attributesToShow = explode('|', $attribute['Value']);
-                    break;
-                case 'granularity':
-                    $this->granularity = $attribute['Value'];
+                    $this->itemIds = $filter['Value'];
                     break;
             }
         }
@@ -219,23 +188,22 @@ class IR
      */
     public function getReportItems(): array
     {
-        // prepare stats service parameters
-        $allowedParams['contextIds'] = $this->contextId;
-        $allowedParams['institutionId'] = $this->customerId;
-        $allowedParams['dateStart'] = $this->beginDate;
-        $allowedParams['dateEnd'] = $this->endDate;
-        $allowedParams['yearsOfPublication'] = $this->yearsOfPublication;
-        if ($this->itemId > 0) {
-            $allowedParams['submissionIds'] = $this->itemId;
+        $params['contextIds'] = [$this->context->getId()];
+        $params['institutionId'] = $this->customerId;
+        $params['dateStart'] = $this->beginDate;
+        $params['dateEnd'] = $this->endDate;
+        $params['yearsOfPublication'] = [$this->yearsOfPublication];
+        if (!empty($this->itemIds)) {
+            $params['submissionIds'] = $this->itemIds;
         }
         // do not consider metric_type filter now, but for display
 
         $statsService = Services::get('sushiStats');
-        $metricsQB = $statsService->getQueryBuilder($allowedParams);
+        $metricsQB = $statsService->getQueryBuilder($params);
         // consider attributes to group the metrics by
         $groupBy = ['m.' . PKPStatisticsHelper::STATISTICS_DIMENSION_SUBMISSION_ID];
         $orderBy = ['m.' . PKPStatisticsHelper::STATISTICS_DIMENSION_SUBMISSION_ID => 'asc'];
-        // The report is on submission leven, and relationship between submission_id and YOP is one to one,
+        // The report is on submission level, and relationship between submission_id and YOP is one to one,
         // so no need to group or order by YOP -- it is enough to group and order by submission_id
         if ($this->granularity == 'Month') {
             $groupBy[] = 'm.' . PKPStatisticsHelper::STATISTICS_DIMENSION_MONTH;
@@ -247,14 +215,14 @@ class IR
             $metricsQB = $metricsQB->orderBy($column, $direction);
         }
         // get metrics results as array
-        $results = $metricsQB->get()->toArray();
-        if (empty($results)) {
-            $this->exceptions[] = [
+        $results = $metricsQB->get();
+        if (!$results->count()) {
+            $this->addWarning([
                 'Code' => 3030,
                 'Severity' => 'Error',
                 'Message' => 'No Usage Available for Requested Dates',
                 'Data' => __('sushi.exception.3030', ['beginDate' => $this->beginDate, 'endDate' => $this->endDate])
-            ];
+            ]);
         }
 
         $resultsGroupedBySubmission = $submissions = $items = [];
@@ -279,14 +247,14 @@ class IR
                 'Title' => $itemTitle,
                 'Platform' => $this->platformName,
                 // there is no publisher setting in OPS, so take the platform name
-                // which is either server or site title, depending on the SUSHI settings
+                // which is either server or site title, depending on the COUNTER SUSHI settings
                 'Publisher' => $this->platformName,
             ];
             $item['Item_ID'][] = [
                 'Type' => 'Proprietary',
                 'Value' => $this->platformId . ':' . $submissionId,
             ];
-            $doi = $currentPublication->getStoredPubId('pub-id::doi');
+            $doi = $currentPublication->getDoi();
             if (isset($doi)) {
                 $item['Item_ID'][] = [
                     'Type' => 'DOI',
@@ -294,8 +262,7 @@ class IR
                 ];
             }
 
-            $datePublished = $submission->getFirstPublication()->getData('datePublished');
-            // possible attributes to show: Article_Version, Authors, Access_Method, Access_Type, Data_Type, Publication_Date and YOP.
+            $datePublished = $submission->getOriginalPublication()->getData('datePublished');
             foreach ($this->attributesToShow as $attributeToShow) {
                 if ($attributeToShow == 'Data_Type') {
                     $item['Data_Type'] = self::DATA_TYPE;
@@ -332,7 +299,7 @@ class IR
                 }
             }
 
-            $perfomances = [];
+            $performances = [];
             foreach ($submissionResults as $result) {
                 // if granularity=Month, the results will contain metrics for each month
                 // else the results will only contain the summarized metrics for the whole period
@@ -363,16 +330,12 @@ class IR
                     }
                 }
                 $periodMetrics['Instance'] = $instances;
-                $perfomances[] = $periodMetrics;
+                $performances[] = $periodMetrics;
             }
-            $item['Performance'] = $perfomances;
+            $item['Performance'] = $performances;
             $items[] = $item;
         }
 
         return $items;
     }
-}
-
-if (!PKP_STRICT_MODE) {
-    class_alias('\APP\sushi\IR', '\IR');
 }

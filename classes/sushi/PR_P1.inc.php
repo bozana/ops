@@ -18,7 +18,11 @@ namespace APP\sushi;
 
 class PR_P1 extends PR
 {
-    public array $metricTypes = ['Total_Item_Requests', 'Unique_Item_Requests'];
+    /** Requested metric types */
+    public array $metricTypes = [
+        'Total_Item_Requests',
+        'Unique_Item_Requests'
+    ];
 
     /**
      * Get report name defined by COUNTER.
@@ -57,7 +61,12 @@ class PR_P1 extends PR
      */
     public function getSupportedParams(): array
     {
-        return ['customer_id', 'begin_date', 'end_date', 'platform'];
+        return [
+            'customer_id',
+            'begin_date',
+            'end_date',
+            'platform'
+        ];
     }
 
     /**
@@ -81,20 +90,16 @@ class PR_P1 extends PR
      */
     public function setFilters(array $filters): void
     {
-        foreach ($filters as $filter) {
-            switch ($filter['Name']) {
-                case 'Begin_Date':
-                    $this->beginDate = $filter['Value'];
-                    break;
-                case 'End_Date':
-                    $this->endDate = $filter['Value'];
-                    break;
-            }
-        }
         // The filters predefined for this report
         $predefinedFilters = [
-            ['Name' => 'Metric_Type', 'Value' => 'Total_Item_Requests|Unique_Item_Requests'],
-            ['Name' => 'Access_Method', 'Value' => 'Regular'],
+            [
+                'Name' => 'Metric_Type',
+                'Value' => 'Total_Item_Requests|Unique_Item_Requests'
+            ],
+            [
+                'Name' => 'Access_Method',
+                'Value' => 'Regular'
+            ],
         ];
         $this->filters = array_merge($filters, $predefinedFilters);
     }
@@ -107,8 +112,4 @@ class PR_P1 extends PR
     {
         $this->attributes = [];
     }
-}
-
-if (!PKP_STRICT_MODE) {
-    class_alias('\APP\sushi\PR_P1', '\PR_P1');
 }
