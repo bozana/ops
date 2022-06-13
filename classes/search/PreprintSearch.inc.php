@@ -19,6 +19,7 @@
 namespace APP\search;
 
 use APP\core\Application;
+use APP\core\Services;
 use APP\facades\Repo;
 use PKP\db\DAORegistry;
 use PKP\facades\Locale;
@@ -37,9 +38,11 @@ class PreprintSearch extends SubmissionSearch
         // Calculate a well-ordered (unique) score.
         $resultCount = count($unorderedResults);
         $i = 0;
+        $contextIds = [];
         foreach ($unorderedResults as $submissionId => &$data) {
             // Reference is necessary to permit modification
             $data['score'] = ($resultCount * $data['count']) + $i++;
+            $contextIds[] = $data['journal_id'];
         }
 
         // If we got a primary sort order then apply it and use score as secondary
@@ -58,7 +61,9 @@ class PreprintSearch extends SubmissionSearch
         if ($orderBy == 'popularityAll' || $orderBy == 'popularityMonth') {
             // Retrieve a metrics report for all submissions.
             $filter = [
-                'submissionIds' => [array_keys($unorderedResults)]
+                'submissionIds' => array_keys($unorderedResults),
+                'contextIds' => $contextIds,
+                'assocTypes' => [Application::ASSOC_TYPE_SUBMISSION, Application::ASSOC_TYPE_SUBMISSION_FILE]
             ];
             if ($orderBy == 'popularityMonth') {
                 $oneMonthAgo = date('Ymd', strtotime('-1 month'));
@@ -66,9 +71,9 @@ class PreprintSearch extends SubmissionSearch
                 $filter['dateStart'] = $oneMonthAgo;
                 $filter['dateEnd'] = $today;
             }
-            $rawReport = Services::get('publicationStats')->getTotalMetrics($filter);
+            $rawReport = Services::get('publicationStats')->getTotals($filter);
             foreach ($rawReport as $row) {
-                $unorderedResults[$row['submission_id']]['metric'] = (int)$row['metric'];
+                $unorderedResults[$row->submission_id]['metric'] = $row->metric;
             }
         }
 

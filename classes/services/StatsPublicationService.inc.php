@@ -15,40 +15,6 @@
 
 namespace APP\services;
 
-use APP\core\Application;
-use APP\facades\Repo;
-use APP\submission\Submission;
-
 class StatsPublicationService extends \PKP\services\PKPStatsPublicationService
 {
-    /**
-     * A helper method to get the submissionIds param when a sectionIds
-     * param is also passed.
-     *
-     * If the sectionIds and submissionIds params were both passed in the
-     * request, then we only return ids that match both conditions.
-     *
-     * @param array $sectionIds section IDs
-     * @param ?array $submissionIds List of allowed submission IDs
-     *
-     * @return array submission IDs
-     */
-    public function processSectionIds(array $sectionIds, ?array $submissionIds): array
-    {
-        $sectionIdsSubmissionIds = Repo::submission()->getIds(
-            Repo::submission()
-                ->getCollector()
-                ->filterByContextIds([Application::get()->getRequest()->getContext()->getId()])
-                ->filterByStatus([Submission::STATUS_PUBLISHED])
-                ->filterBySectionIds($sectionIds)
-        )->toArray();
-
-        if ($submissionIds !== null && !empty($submissionIds)) {
-            $submissionIds = array_intersect($submissionIds, $sectionIdsSubmissionIds);
-        } else {
-            $submissionIds = $sectionIdsSubmissionIds;
-        }
-
-        return $submissionIds;
-    }
 }

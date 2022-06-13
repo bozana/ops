@@ -15,7 +15,7 @@
 
 use APP\core\Application;
 use APP\facades\Repo;
-use APP\observers\events\UsageEvent;
+use APP\observers\events\Usage;
 use APP\submission\Submission;
 use APP\template\TemplateManager;
 use PKP\config\Config;
@@ -95,9 +95,7 @@ class IndexHandler extends PKPIndexHandler
             $this->_setupAnnouncements($server, $templateMgr);
 
             $templateMgr->display('frontend/pages/indexServer.tpl');
-            if (!$request->isDNTSet()) {
-                event(new UsageEvent(Application::ASSOC_TYPE_SERVER, $server->getId(), $server->getId()));
-            }
+            event(new Usage(Application::ASSOC_TYPE_SERVER));
             return;
         } else {
             $serverDao = DAORegistry::getDAO('ServerDAO'); /** @var APP\server\ServerDAO $serverDao */

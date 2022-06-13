@@ -17,7 +17,7 @@
 use APP\core\Application;
 use APP\facades\Repo;
 use APP\handler\Handler;
-use APP\observers\events\UsageEvent;
+use APP\observers\events\Usage;
 use APP\security\authorization\OpsServerMustPublishPolicy;
 use APP\submission\Submission;
 use APP\template\TemplateManager;
@@ -285,9 +285,7 @@ class PreprintHandler extends Handler
 
             if (!HookRegistry::call('PreprintHandler::view', [&$request, &$preprint, $publication])) {
                 $templateMgr->display('frontend/pages/preprint.tpl');
-                if ($preprint->getData('status') == Submission::STATUS_PUBLISHED && !$request->isDNTSet()) {
-                    event(new UsageEvent(Application::ASSOC_TYPE_SUBMISSION, $preprint->getId(), $context->getId(), $preprint->getId(), null, null));
-                }
+                event(new Usage(Application::ASSOC_TYPE_SUBMISSION, $preprint));
                 return;
             }
         } else {
@@ -392,8 +390,7 @@ class PreprintHandler extends Handler
                     if ($genre->getCategory() != Genre::GENRE_CATEGORY_DOCUMENT || $genre->getSupplementary() || $genre->getDependent()) {
                         $assocType = Application::ASSOC_TYPE_SUBMISSION_FILE_COUNTER_OTHER;
                     }
-                    $mimetype = $submissionFile->getData('mimetype');
-                    event(new UsageEvent($assocType, $this->fileId, $this->preprint->getData('contextId'), $this->preprint->getId(), $this->galley->getId(), $mimetype));
+                    event(new Usage($assocType, $this->preprint, $this->galley, $submissionFile));
                 }
                 $returner = true;
                 HookRegistry::call('FileManager::downloadFileFinished', [&$returner]);

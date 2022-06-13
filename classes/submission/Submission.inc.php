@@ -31,7 +31,6 @@ define('AUTHOR_TOC_SHOW', 2);
 // Preprint access constants -- see Publication::getData('accessStatus')
 define('PREPRINT_ACCESS_OPEN', 1);
 
-use APP\core\Application;
 use APP\core\Services;
 use APP\facades\Repo;
 use APP\statistics\StatisticsHelper;
@@ -218,7 +217,6 @@ class Submission extends PKPSubmission
      */
     public function getTotalGalleyViews()
     {
-        $views = 0;
         $fileIds = [];
         $publications = $this->getPublishedPublications();
         foreach ($publications as $publication) {
@@ -238,11 +236,8 @@ class Submission extends PKPSubmission
         $metrics = Services::get('publicationStats')
             ->getQueryBuilder($filters)
             ->getSum([])
-            ->get()->toArray();
-        if (!empty($metrics)) {
-            $views = (int) current($metrics)->metric;
-        }
-        return $views;
+            ->value('metric');
+        return $metrics ? $metrics : 0;
     }
 
     /**

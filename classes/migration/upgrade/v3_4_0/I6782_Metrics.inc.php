@@ -40,15 +40,16 @@ class I6782_Metrics extends Migration
             ->where('plugin_name', '=', 'usagestatsplugin')
             ->where('setting_name', '=', 'optionalColumns')
             ->value('setting_value');
-        $enableGeoUsageStats = $usageStatsKeepDaily = 0;
+        $enableGeoUsageStats = 'disabled';
+        $keepDailyUsageStats = false;
         if (!is_null($optionalColumns)) {
-            $usageStatsKeepDaily = 1;
+            $keepDailyUsageStats = true;
             if (str_contains($optionalColumns, 'city')) {
-                $enableGeoUsageStats = 3;
+                $enableGeoUsageStats = 'country+region+city';
             } elseif (str_contains($optionalColumns, 'region')) {
-                $enableGeoUsageStats = 2;
+                $enableGeoUsageStats = 'country+region';
             } else {
-                $enableGeoUsageStats = 1;
+                $enableGeoUsageStats = 'country';
             }
         }
         // Compress archives settings
@@ -58,9 +59,9 @@ class I6782_Metrics extends Migration
             ->value('setting_value');
         // Migrate site settings
         DB::table('site_settings')->insertOrIgnore([
-            ['setting_name' => 'archivedUsageStatsLogFiles', 'setting_value' => $compressArchives],
+            ['setting_name' => 'compressStatsLogs', 'setting_value' => $compressArchives],
             ['setting_name' => 'enableGeoUsageStats', 'setting_value' => $enableGeoUsageStats],
-            ['setting_name' => 'usageStatsKeepDaily', 'setting_value' => $usageStatsKeepDaily]
+            ['setting_name' => 'keepDailyUsageStats', 'setting_value' => $keepDailyUsageStats]
         ]);
         // Display site settings
         $displayStatistics = DB::table('plugin_settings')
@@ -85,7 +86,7 @@ class I6782_Metrics extends Migration
         if (isset($activeSiteTheme)) {
             $siteUsageStatsDisplay = !$displayStatistics ? 'none' : $chartType;
             DB::table('plugin_settings')->insertOrIgnore([
-                ['plugin_name' => $activeSiteTheme->getName(), 'context_id' => 0, 'setting_name' => 'usageStatsDisplay', 'setting_value' => $siteUsageStatsDisplay, 'setting_type' => 'string'],
+                ['plugin_name' => $activeSiteTheme->getName(), 'context_id' => 0, 'setting_name' => 'displayStats', 'setting_value' => $siteUsageStatsDisplay, 'setting_type' => 'string'],
             ]);
         }
 
@@ -116,7 +117,7 @@ class I6782_Metrics extends Migration
             if (isset($activeContextTheme)) {
                 $contextUsageStatsDisplay = !$contextDisplayStatistics ? 'none' : $contextChartType;
                 DB::table('plugin_settings')->insertOrIgnore([
-                    ['plugin_name' => $activeContextTheme->getName(), 'context_id' => $contextId, 'setting_name' => 'usageStatsDisplay', 'setting_value' => $contextUsageStatsDisplay, 'setting_type' => 'string'],
+                    ['plugin_name' => $activeContextTheme->getName(), 'context_id' => $contextId, 'setting_name' => 'displayStats', 'setting_value' => $contextUsageStatsDisplay, 'setting_type' => 'string'],
                 ]);
             }
         }
@@ -125,8 +126,7 @@ class I6782_Metrics extends Migration
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
             $dayFormatSql = "to_date(m.day, 'YYYYMMDD')";
         }
-        // Requires the new DB metrics tables
-        // The not existing foreign keys should already be removed in PreflightCheckStatsMigration
+        // The not existing foreign keys should already be moved to the metrics_tmp in I6782_OrphanedMetrics
         // Migrate context metrics, ASSOC_TYPE_SERVER
         DB::statement("INSERT INTO metrics_context (load_id, context_id, date, metric) SELECT m.load_id, m.assoc_id, {$dayFormatSql}, m.metric FROM metrics m WHERE m.assoc_type = 256 AND m.metric_type = 'ops::counter'");
         // Migrate submission metrics; consider abstracts, galley and supp files
@@ -164,7 +164,7 @@ class I6782_Metrics extends Migration
                 $table->string('iso', 3)->nullable();
             });
             // read the FIPS to ISO mappings and isert them into the temporary table
-            $mappings = include Core::getBaseDir() . DIRECTORY_SEPARATOR . PKP_LIB_PATH . DIRECTORY_SEPARATOR . 'lib' . DIRECTORY_SEPARATOR . 'regionMapping.php';
+            $mappings = include Core::getBaseDir() . '/' . PKP_LIB_PATH . '/lib/regionMapping.php';
             foreach ($mappings as $country => $regionMapping) {
                 foreach ($regionMapping as $fips => $iso) {
                     DB::table('region_mapping_tmp')->insert([
@@ -228,6 +228,14 @@ class I6782_Metrics extends Migration
         // Delete the entries with the metric type ops::counter from the DB table metrics -> they were migrated above
         if (Schema::hasTable('metrics')) {
             DB::statement("DELETE FROM metrics WHERE metric_type = 'ops::counter'");
+
+            // Move back the orphaned metrics form the temporary metrics_tmp
+            $metricsTmp = DB::table('metrics_tmp')->select('*')->get();
+            foreach ($metricsTmp as $record) {
+                DB::table('metrics')->insert(get_object_vars($record));
+            }
+            Schema::drop('metrics_tmp');
+
             $metricsExist = DB::table('metrics')->count();
             // if table metrics is now not empty rename it, else delete it
             if ($metricsExist > 0) {
@@ -255,8 +263,4 @@ class I6782_Metrics extends Migration
     {
         throw new DowngradeNotSupportedException();
     }
-}
-
-if (!PKP_STRICT_MODE) {
-    class_alias('\APP\migration\upgrade\v3_4_0\I6782_Metrics', '\I6782_Metrics');
 }
