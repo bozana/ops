@@ -128,7 +128,7 @@ class PR extends CounterR5Report
      */
     public function getReportItems(): array
     {
-        $params['contextIds'] = [$this->contextId];
+        $params['contextIds'] = [$this->context->getId()];
         $params['institutionId'] = $this->customerId;
         $params['dateStart'] = $this->beginDate;
         $params['dateEnd'] = $this->endDate;

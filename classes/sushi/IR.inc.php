@@ -192,7 +192,7 @@ class IR extends CounterR5Report
         $params['institutionId'] = $this->customerId;
         $params['dateStart'] = $this->beginDate;
         $params['dateEnd'] = $this->endDate;
-        $params['yearsOfPublication'] = [$this->yearsOfPublication];
+        $params['yearsOfPublication'] = $this->yearsOfPublication;
         if (!empty($this->itemIds)) {
             $params['submissionIds'] = $this->itemIds;
         }
