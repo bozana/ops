@@ -13,6 +13,7 @@
 
 namespace APP\migration\upgrade\v3_4_0;
 
+use APP\core\Application;
 use APP\core\Services;
 use APP\migration\install\MetricsMigration;
 use Illuminate\Database\Schema\Blueprint;
@@ -40,6 +41,7 @@ class I6782_Metrics extends Migration
             ->where('plugin_name', '=', 'usagestatsplugin')
             ->where('setting_name', '=', 'optionalColumns')
             ->value('setting_value');
+
         $enableGeoUsageStats = 'disabled';
         $keepDailyUsageStats = false;
         if (!is_null($optionalColumns)) {
@@ -127,13 +129,32 @@ class I6782_Metrics extends Migration
             $dayFormatSql = "to_date(m.day, 'YYYYMMDD')";
         }
         // The not existing foreign keys should already be moved to the metrics_tmp in I6782_OrphanedMetrics
-        // Migrate context metrics, ASSOC_TYPE_SERVER
-        DB::statement("INSERT INTO metrics_context (load_id, context_id, date, metric) SELECT m.load_id, m.assoc_id, {$dayFormatSql}, m.metric FROM metrics m WHERE m.assoc_type = 256 AND m.metric_type = 'ops::counter'");
+        // Migrate context metrics
+        $selectContextMetrics = DB::table('metrics as m')
+            ->select(DB::raw("m.load_id, m.assoc_id, {$dayFormatSql}, m.metric"))
+            ->where('m.assoc_type', '=', Application::ASSOC_TYPE_SERVER)
+            ->where('m.metric_type', '=', 'ops::counter');
+        DB::table('metrics_context')->insertUsing(['load_id', 'context_id', 'date', 'metric'], $selectContextMetrics);
+
         // Migrate submission metrics; consider abstracts, galley and supp files
         // ASSOC_TYPE_SUBMISSION, ASSOC_TYPE_SUBMISSION_FILE and ASSOC_TYPE_SUBMISSION_FILE_COUNTER_OTHER
-        DB::statement("INSERT INTO metrics_submission (load_id, context_id, submission_id, representation_id, submission_file_id, file_type, assoc_type, date, metric) SELECT m.load_id, m.context_id, m.assoc_id, null, null, null, m.assoc_type, {$dayFormatSql}, m.metric FROM metrics m WHERE m.assoc_type = 1048585 AND m.metric_type = 'ops::counter'");
-        DB::statement("INSERT INTO metrics_submission (load_id, context_id, submission_id, representation_id, submission_file_id, file_type, assoc_type, date, metric) SELECT m.load_id, m.context_id, m.submission_id, m.representation_id, m.assoc_id, m.file_type, m.assoc_type, {$dayFormatSql}, m.metric FROM metrics m WHERE m.assoc_type = 515 AND m.metric_type = 'ops::counter'");
-        DB::statement("INSERT INTO metrics_submission (load_id, context_id, submission_id, representation_id, submission_file_id, file_type, assoc_type, date, metric) SELECT m.load_id, m.context_id, m.submission_id, m.representation_id, m.assoc_id, m.file_type, m.assoc_type, {$dayFormatSql}, m.metric FROM metrics m WHERE m.assoc_type = 531 AND m.metric_type = 'ops::counter'");
+        $selectSubmissionMetrics = DB::table('metrics as m')
+            ->select(DB::raw("m.load_id, m.context_id, m.assoc_id, null, null, null, m.assoc_type, {$dayFormatSql}, m.metric"))
+            ->where('m.assoc_type', '=', Application::ASSOC_TYPE_SUBMISSION)
+            ->where('m.metric_type', '=', 'ops::counter');
+        DB::table('metrics_submission')->insertUsing(['load_id', 'context_id', 'submission_id', 'representation_id', 'submission_file_id', 'file_type', 'assoc_type', 'date', 'metric'], $selectSubmissionMetrics);
+
+        $selectSubmissionFileMetrics = DB::table('metrics as m')
+            ->select(DB::raw("m.load_id, m.context_id, m.submission_id, m.representation_id, m.assoc_id, m.file_type, m.assoc_type, {$dayFormatSql}, m.metric"))
+            ->where('m.assoc_type', '=', Application::ASSOC_TYPE_SUBMISSION_FILE)
+            ->where('m.metric_type', '=', 'ops::counter');
+        DB::table('metrics_submission')->insertUsing(['load_id', 'context_id', 'submission_id', 'representation_id', 'submission_file_id', 'file_type', 'assoc_type', 'date', 'metric'], $selectSubmissionFileMetrics);
+
+        $selectSubmissionSuppFileMetrics = DB::table('metrics as m')
+            ->select(DB::raw("m.load_id, m.context_id, m.submission_id, m.representation_id, m.assoc_id, m.file_type, m.assoc_type, {$dayFormatSql}, m.metric"))
+            ->where('m.assoc_type', '=', Application::ASSOC_TYPE_SUBMISSION_FILE_COUNTER_OTHER)
+            ->where('m.metric_type', '=', 'ops::counter');
+        DB::table('metrics_submission')->insertUsing(['load_id', 'context_id', 'submission_id', 'representation_id', 'submission_file_id', 'file_type', 'assoc_type', 'date', 'metric'], $selectSubmissionSuppFileMetrics);
 
         // Migrate Geo metrics -- no matter if the Geo usage stats are currently enabled
         // fix wrong entries in the DB table metrics
@@ -147,13 +168,17 @@ class I6782_Metrics extends Migration
         DB::table('metrics')->update(['region' => DB::raw("LPAD(region, 2, '0')")]);
 
         // insert into daily table
-        DB::statement("
-            INSERT INTO metrics_submission_geo_daily (load_id, context_id, submission_id, country, region, city, date, metric, metric_unique)
-            SELECT m.load_id, m.context_id, m.submission_id, COALESCE(m.country_id, ''), COALESCE(m.region, ''), COALESCE(m.city, ''), {$dayFormatSql} as mday, SUM(m.metric), 0
-            FROM metrics m
-            WHERE m.assoc_type IN (515, 531, 1048585) AND m.metric_type = 'ops::counter' AND (m.country_id IS NOT NULL OR m.region IS NOT NULL OR m.city IS NOT NULL)
-            GROUP BY m.load_id, m.context_id, m.submission_id, m.country_id, m.region, m.city, mday
-        ");
+        $selectGeoMetrics = DB::table('metrics as m')
+            ->select(DB::raw("m.load_id, m.context_id, m.submission_id, COALESCE(m.country_id, ''), COALESCE(m.region, ''), COALESCE(m.city, ''), {$dayFormatSql} as mday, SUM(m.metric), 0"))
+            ->whereIn('m.assoc_type', [Application::ASSOC_TYPE_SUBMISSION, Application::ASSOC_TYPE_SUBMISSION_FILE, Application::ASSOC_TYPE_SUBMISSION_FILE_COUNTER_OTHER])
+            ->where('m.metric_type', '=', 'ops::counter')
+            ->where(function ($q) {
+                $q->whereNotNull('m.country_id')
+                    ->orWhereNotNull('m.region')
+                    ->orWhereNotNull('m.city');
+            })
+            ->groupBy(DB::raw('m.load_id, m.context_id, m.submission_id, m.country_id, m.region, m.city, mday'));
+        DB::table('metrics_submission_geo_daily')->insertUsing(['load_id', 'context_id', 'submission_id', 'country', 'region', 'city', 'date', 'metric', 'metric_unique'], $selectGeoMetrics);
 
         // migrate region FIPS to ISO, s. https://dev.maxmind.com/geoip/whats-new-in-geoip2?lang=en
         // create a temporary table for the FIPS-ISO mapping
@@ -213,21 +238,19 @@ class I6782_Metrics extends Migration
         }
 
         // Migrate to monthly table
-        $monthFormatSql = "DATE_FORMAT(STR_TO_DATE(gd.date, '%Y-%m-%d'), '%Y%m')";
+        $monthFormatSql = "CAST(DATE_FORMAT(gd.date, '%Y%m') AS UNSIGNED)";
         if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
-            $monthFormatSql = "to_char(gd.date, 'YYYYMM')";
+            $monthFormatSql = "to_char(gd.date, 'YYYYMM')::integer";
         }
         // use the table metrics_submission_geo_daily instead of table metrics to calculate the monthly numbers
-        DB::statement("
-            INSERT INTO metrics_submission_geo_monthly (context_id, submission_id, country, region, city, month, metric, metric_unique)
-            SELECT gd.context_id, gd.submission_id, gd.country, gd.region, gd.city, {$monthFormatSql} as month, SUM(gd.metric), SUM(gd.metric_unique)
-            FROM metrics_submission_geo_daily gd
-            GROUP BY gd.context_id, gd.submission_id, gd.country, gd.region, gd.city, month
-        ");
+        $selectSubmissionGeoDaily = DB::table('metrics_submission_geo_daily as gd')
+            ->select(DB::raw("gd.context_id, gd.submission_id, COALESCE(gd.country, ''), COALESCE(gd.region, ''), COALESCE(gd.city, ''), {$monthFormatSql} as gdmonth, SUM(gd.metric), SUM(gd.metric_unique)"))
+            ->groupBy(DB::raw('gd.context_id, gd.submission_id, gd.country, gd.region, gd.city, gdmonth'));
+        DB::table('metrics_submission_geo_monthly')->insertUsing(['context_id', 'submission_id', 'country', 'region', 'city', 'month', 'metric', 'metric_unique'], $selectSubmissionGeoDaily);
 
         // Delete the entries with the metric type ops::counter from the DB table metrics -> they were migrated above
         if (Schema::hasTable('metrics')) {
-            DB::statement("DELETE FROM metrics WHERE metric_type = 'ops::counter'");
+            DB::table('metrics')->where('metric_type', '=', 'ops::counter')->delete();
 
             // Move back the orphaned metrics form the temporary metrics_tmp
             $metricsTmp = DB::table('metrics_tmp')->select('*')->get();
@@ -239,11 +262,7 @@ class I6782_Metrics extends Migration
             $metricsExist = DB::table('metrics')->count();
             // if table metrics is now not empty rename it, else delete it
             if ($metricsExist > 0) {
-                if (substr(Config::getVar('database', 'driver'), 0, strlen('postgres')) === 'postgres') {
-                    DB::statement('ALTER TABLE metrics RENAME TO metrics_old;');
-                } else {
-                    DB::statement('ALTER TABLE metrics RENAME metrics_old;');
-                }
+                Schema::rename('metrics', 'metrics_old');
             } else {
                 Schema::drop('metrics');
             }

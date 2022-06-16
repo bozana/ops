@@ -16,9 +16,17 @@
 
 namespace APP\observers\events;
 
+use APP\submission\Submission;
 use PKP\observers\traits\UsageEvent;
+use PKP\submission\Representation;
+use PKP\submissionFile\SubmissionFile;
 
 class Usage
 {
     use UsageEvent;
+
+    public function __construct(int $assocType, Submission $submission = null, Representation $publicationFormat = null, SubmissionFile $submissionFile = null)
+    {
+        $this->constructUsageEvent($assocType, $submission, $publicationFormat, $submissionFile);
+    }
 }
