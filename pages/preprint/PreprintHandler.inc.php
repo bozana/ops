@@ -380,9 +380,8 @@ class PreprintHandler extends Handler
 
                 $filename = Services::get('file')->formatFilename($submissionFile->getData('path'), $submissionFile->getLocalizedData('name'));
 
-                // if the file is a gallay file (i.e. not a dependent file e.g. CSS or images),
-                // and if DoNotTrack is not set, fire an usage event.
-                if ($this->preprint->getData('status') == Submission::STATUS_PUBLISHED && $this->galley->getData('submissionFileId') == $this->fileId && !$request->isDNTSet()) {
+                // if the file is a gallay file (i.e. not a dependent file e.g. CSS or images), fire an usage event.
+                if ($this->galley->getData('submissionFileId') == $this->fileId) {
                     $assocType = Application::ASSOC_TYPE_SUBMISSION_FILE;
                     $genreDao = DAORegistry::getDAO('GenreDAO');
                     $genre = $genreDao->getById($submissionFile->getData('genreId'));
