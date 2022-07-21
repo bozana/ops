@@ -15,6 +15,13 @@ namespace APP\migration\upgrade\v3_4_0;
 
 class I6782_OrphanedMetrics extends \PKP\migration\upgrade\v3_4_0\I6782_OrphanedMetrics
 {
+    private const ASSOC_TYPE_CONTEXT = 0x0000100;
+
+    protected function getContextAssocType(): int
+    {
+        return self::ASSOC_TYPE_CONTEXT;
+    }
+
     protected function getContextTable(): string
     {
         return 'servers';

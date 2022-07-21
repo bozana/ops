@@ -28,6 +28,6 @@ class Usage
 
     public function __construct(int $assocType, Context $context, Submission $submission = null, Representation $publicationFormat = null, SubmissionFile $submissionFile = null)
     {
-        $this->constructUsageEvent($assocType, $context, $submission, $publicationFormat, $submissionFile);
+        $this->traitConstruct($assocType, $context, $submission, $publicationFormat, $submissionFile);
     }
 }
